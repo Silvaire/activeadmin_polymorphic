@@ -4,17 +4,21 @@ $ ->
     $(form).on 'submit', (e) ->
       submissions_counter = 0
       parentForm = @
-      expect = $(@).find('form').length
+      expect = 0
+      $(@).find('form').each ->
+        if ( $(@).parents("form")[0] == $(parentForm)[0] ) #finds only form directly descendant from parent form
+          expect++
       if submissions_counter < expect
         e.preventDefault()
 
       $(@).find('form').each ->
-        remoteSubmit @, ->
-          submissions_counter++
-          if submissions_counter == expect
-            $(form).find('form').remove()
-            stripEmptyRelations()
-            $(parentForm).submit()
+        if ( $(@).parents("form")[0] == $(parentForm)[0] ) #finds only form directly descendant from parent form
+          remoteSubmit @, ->
+            submissions_counter++
+            if submissions_counter == expect
+              $(form).find('form').remove()
+              stripEmptyRelations()
+              $(parentForm).submit()
 
   $(document).on "upload:start", "form", (event) ->
     form = $('#main_content').find('form:first')
@@ -26,14 +30,20 @@ $ ->
     unless form.find("input.uploading").length
       form.find("input[type=submit]").removeAttr "disabled"
 
-  $('.polymorphic_has_many_fields').each (index, rapper) ->
-    rapper = $ rapper
+  loadExistingPolymorphic = ->
+    $('.polymorphic_has_many_fields:not(.fields-loaded)').each (index, rapper) ->
+      rapper = $ rapper
+      hiddenField = rapper.find 'input[type=hidden][data-path]'
+      hiddenFieldNumber = hiddenField.length
+      formPath = hiddenField.data 'path'
 
-    hiddenField = rapper.find 'input[type=hidden][data-path]'
-    formPath = hiddenField.data 'path'
+      $(@).addClass('fields-loaded')
 
-    extractAndInsertForm formPath, rapper
-
+      extractAndInsertForm formPath, rapper, loadExistingPolymorphic
+    if $('.polymorphic_has_many_fields:not(.fields-loaded)').length == 0
+      init_polymorphic_sortable()
+  
+  loadExistingPolymorphic()
 
   $(document).on 'click', 'a.button.polymorphic_has_many_remove', (e)->
     e.preventDefault()
@@ -61,8 +71,6 @@ $ ->
       recompute_positions parent
       parent.trigger 'polymorphic_has_many_add:after', [fieldset, parent]
 
-  init_polymorphic_sortable()
-
 
   $('.polymorphic_has_many_container').on 'change', '.polymorphic_type_select', (event) ->
     fieldset = $(this).closest 'fieldset'
@@ -81,7 +89,7 @@ $ ->
 
     newListItem = $ '<li>'
 
-    extractAndInsertForm formPath, fieldset
+    extractAndInsertForm formPath, fieldset, ->
 
 init_polymorphic_sortable = ->
   elems = $('.polymorphic_has_many_container[data-sortable]:not(.ui-sortable)')
@@ -114,7 +122,7 @@ recompute_positions = (parent)->
     if sortable_input.length
       sortable_input.val if destroy_input.is ':checked' then '' else position++
 
-window.extractAndInsertForm= (url, target)->
+window.extractAndInsertForm= (url, target, callback)->
   target = $ target
 
   $.get url, (data)->
@@ -124,6 +132,7 @@ window.extractAndInsertForm= (url, target)->
     $(form).on 'submit', -> return false
 
     target.prepend form
+    callback()
 
 window.loadErrors = (target) ->
   $(target).off('ajax:success') # unbind successfull action for json form
@@ -151,23 +160,56 @@ window.remoteSubmit = (target, callback)->
   # unbind callbacks action for form if it was submitted before
   $(target).off('ajax:success').off('ajax:aborted:file').off('ajax:error')
 
-  $(target).trigger('submit.rails')
-    .on 'ajax:aborted:file', (inputs) ->
-      false
-    .on 'ajax:error', (event, response, status)->
-      $(target).attr('action', action)
-      if response.status == 422
-        # loadErrors(target) #this creates a loop for required fields, since loadErrors re-subnmits the form
-        alert('a field was not filled in properly')
-    .on 'ajax:success', (event, object, status, response) ->
-      $(target).attr('action', action)
-      if `response.status == 201`  # created # this is probably never true, since coffeescript makes it check '201' === 201
-        $(target).next().find('input:first').val(object.id)
-        # replace new form with edit form
-        # to update form method to PATCH and form action
-        url = "#{action}/#{object.id}/edit"
-        extractAndInsertForm(url, $(target).parent('fieldset'))
-        $(target).remove()
+  expect = 0
+  submissions_counter = 0
+  parentForm = target
+  $(target).find('form').each ->
+    if ( $(@).parents("form")[0] == $(target)[0] ) #finds only form directly descendant from parent form
+      expect++
+  $(target).find('form').each ->
+    if ( $(@).parents("form")[0] == $(target)[0] ) #finds only form directly descendant from parent form
+      remoteSubmit @, ->
+        submissions_counter++
+        # The counter is never going to be reached here, because nested forms are now submitted before their parent.
+        if submissions_counter == expect 
+          $(parentForm).trigger('submit.rails')
+          .on 'ajax:aborted:file', (inputs) ->
+            false
+          .on 'ajax:error', (event, response, status)->
+            $(parentForm).attr('action', action)
+            if response.status == 422
+              # loadErrors(parentForm) #this creates a loop for required fields, since loadErrors re-subnmits the form
+              alert('a field was not filled in properly')
+          .on 'ajax:success', (event, object, status, response) ->
+            $(parentForm).attr('action', action)
+            if `response.status == 201`  # created
+              $(parentForm).next().find('input:first').val(object.id)
+              # replace new form with edit form
+              # to update form method to PATCH and form action
+              url = "#{action}/#{object.id}/edit"
+              extractAndInsertForm(url, $(parentForm).parent('fieldset'), callback)
+              $(parentForm).remove()
+            else
+              callback()
 
-      callback()
+  if $(target).find('form').length == 0
+    $(target).trigger('submit.rails')
+      .on 'ajax:aborted:file', (inputs) ->
+        false
+      .on 'ajax:error', (event, response, status)->
+        $(target).attr('action', action)
+        if response.status == 422
+          # loadErrors(target) #this creates a loop for required fields, since loadErrors re-subnmits the form
+          alert('a field was not filled in properly')
+      .on 'ajax:success', (event, object, status, response) ->
+        $(target).attr('action', action)
+        if `response.status == 201`  # created
+          $(target).next().find('input:first').val(object.id)
+          # replace new form with edit form
+          # to update form method to PATCH and form action
+          url = "#{action}/#{object.id}/edit"
+          extractAndInsertForm(url, $(target).parent('fieldset'), callback)
+          $(target).remove()
+        else
+          callback()
 
