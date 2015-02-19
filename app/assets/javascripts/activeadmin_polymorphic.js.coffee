@@ -1,24 +1,25 @@
 $ ->
-  if $('.polymorphic_has_many_container').length
-    form = $('#main_content').find('form:first')
-    $(form).on 'submit', (e) ->
-      submissions_counter = 0
-      parentForm = @
-      expect = 0
-      $(@).find('form').each ->
-        if ( $(@).parents("form")[0] == $(parentForm)[0] ) #finds only form directly descendant from parent form
-          expect++
-      if submissions_counter < expect
-        e.preventDefault()
+  form = $('#main_content').find('form:first')
+  if form.length
+    form.on 'submit', (e) ->
+      if $('.polymorphic_has_many_container').length
+        submissions_counter = 0
+        parentForm = @
+        expect = 0
+        $(@).find('form').each ->
+          if ( $(@).parents("form")[0] == $(parentForm)[0] ) #finds only form directly descendant from parent form
+            expect++
+        if submissions_counter < expect
+          e.preventDefault()
 
-      $(@).find('form').each ->
-        if ( $(@).parents("form")[0] == $(parentForm)[0] ) #finds only form directly descendant from parent form
-          remoteSubmit @, ->
-            submissions_counter++
-            if submissions_counter == expect
-              $(form).find('form').remove()
-              stripEmptyRelations()
-              $(parentForm).submit()
+        $(@).find('form').each ->
+          if ( $(@).parents("form")[0] == $(parentForm)[0] ) #finds only form directly descendant from parent form
+            remoteSubmit @, ->
+              submissions_counter++
+              if submissions_counter == expect
+                $(form).find('form').remove()
+                stripEmptyRelations()
+                $(parentForm).submit()
 
   $(document).on "upload:start", "form", (event) ->
     form = $('#main_content').find('form:first')
@@ -71,6 +72,31 @@ $ ->
       recompute_positions parent
       parent.trigger 'polymorphic_has_many_add:after', [fieldset, parent]
 
+   $(document).on 'click', 'a.button.section_has_many_remove', (e)->
+    e.preventDefault()
+    parent    = $(@).closest '.section_has_many_container'
+    to_remove = $(@).closest 'fieldset'
+    recompute_positions parent
+
+    parent.trigger 'section_has_many_remove:before', [to_remove, parent]
+    to_remove.remove()
+    parent.trigger 'section_has_many_remove:after', [to_remove, parent]
+
+  $(document).on 'click', 'a.button.section_has_many_add', (e)->
+    e.preventDefault()
+    parent = $(@).closest '.section_has_many_container'
+    parent.trigger before_add = $.Event('section_has_many_add:before'), [parent]
+
+    unless before_add.isDefaultPrevented()
+      index = parent.data('section_has_many_index') || parent.children('fieldset').length - 1
+      parent.data has_many_index: ++index
+
+      regex = new RegExp $(@).data('placeholder'), 'g'
+      html  = $(@).data('html').replace regex, index
+
+      fieldset = $(html).insertBefore(@)
+      recompute_positions parent
+      parent.trigger 'section_has_many_add:after', [fieldset, parent]
 
   $('.polymorphic_has_many_container').on 'change', '.polymorphic_type_select', (event) ->
     fieldset = $(this).closest 'fieldset'
@@ -90,6 +116,68 @@ $ ->
     newListItem = $ '<li>'
 
     extractAndInsertForm formPath, fieldset, ->
+
+
+    # SECTIONS
+  #
+  $('.json_container').on 'change', '.section_type_select', (event) ->
+    fieldset = $(this).closest 'fieldset'
+
+    selectedOption = $(this).find 'option:selected'
+    formPath = selectedOption.data 'path'
+
+    label = $(this).prev 'label'
+    label.remove()
+
+    hiddenField = $('<input type="hidden" />')
+    hiddenField.attr 'name', $(this).attr('name')
+    hiddenField.val $(this).val()
+
+    $(this).parents('ol').first().remove()#replaceWith hiddenField
+
+    newListItem = $ '<li>'
+
+    resource_name = formPath.split('/')[2]
+    extractAndInsertSectionForm formPath, fieldset, resource_name
+
+
+window.extractAndInsertSectionForm= (url, target, resource_name)->
+  target = $ target
+
+  content_page_id = $('#site_page_page_type_record_attributes_typeable_id').val()
+  $.get url + ".json?content_page_id=" + (content_page_id || "new_record") , (data)->
+    part = data.part
+    section_id = part.id
+    fields = $(part.fields)
+    $container = $('<div/>');
+    Handlebars.registerHelper('lowerCase', (str) ->
+      str.toLowerCase()
+    )
+    Handlebars.registerHelper('capitalize', (str) ->
+      str[0].toUpperCase() + str.slice(1).toLowerCase()
+    )
+    Handlebars.registerHelper('inputPartial', (name, ctx, hash) ->
+      ps = Handlebars.partials
+      if (typeof ps["inputs/_" + name] != 'function')
+        ps["inputs/_" + name] = Handlebars.compile(ps["inputs/_" + name])
+      new Handlebars.SafeString(ps["inputs/_" + name](ctx, hash))
+    )
+    Handlebars.registerHelper('ifAreNotEqual', (lvalue, rvalue, options) ->
+      if (arguments.length < 3)
+        throw new Error("Handlebars Helper areEqual needs 2 parameters")
+      if( lvalue == rvalue )
+        options.inverse(this)
+      else
+        options.fn(this)
+    )
+    $container.html(HandlebarsTemplates['parts'](data));
+    # fields.each ->
+    #   $elem = "<li class='string input stringish'><label>#{@title}</label><input type='#{@field_type}' name='page[sections][#{section_id}][fields][#{@id}][#{@title}]'><input type='hidden' value='#{@id}' name='page[sections][#{section_id}][fields][id]'></li>"
+    #   $container.append $elem
+    target.prepend $container
+
+    return false
+
 
 init_polymorphic_sortable = ->
   elems = $('.polymorphic_has_many_container[data-sortable]:not(.ui-sortable)')
@@ -212,4 +300,6 @@ window.remoteSubmit = (target, callback)->
           $(target).remove()
         else
           callback()
+
+
 
