@@ -129,23 +129,26 @@ $ ->
     label = $(this).prev 'label'
     label.remove()
 
-    hiddenField = $('<input type="hidden" />')
-    hiddenField.attr 'name', $(this).attr('name')
-    hiddenField.val $(this).val()
+    # hiddenField = $('<input type="hidden" />')
+    # hiddenField.attr 'name', $(this).attr('name')
+    # hiddenField.val $(this).val()
 
     $(this).parents('ol').first().remove()#replaceWith hiddenField
 
     newListItem = $ '<li>'
 
-    resource_name = formPath.split('/')[2]
-    extractAndInsertSectionForm formPath, fieldset, resource_name
+    formName = $(this).attr('name').split("[parts]")[0]
+
+    extractAndInsertSectionForm formPath, fieldset, formName
 
 
-window.extractAndInsertSectionForm= (url, target, resource_name)->
+window.extractAndInsertSectionForm= (url, target, formName)->
   target = $ target
 
-  content_page_id = $('#site_page_page_type_record_attributes_typeable_id').val()
-  $.get url + ".json?content_page_id=" + (content_page_id || "new_record") , (data)->
+  $.get url + "?form_name=#{formName}", (data) ->
+    console.log data
+    target.prepend data
+    return false
     part = data.part
     section_id = part.id
     fields = $(part.fields)
