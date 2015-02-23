@@ -46,7 +46,7 @@ module ActiveadminPolymorphic
         contents = "".html_safe
         block = sections_form(assoc, builder_options, collection)
         template.assign('sections_has_many_block' => true)
-        contents = without_wrapper { inputs(options, &block) }
+        # contents = without_wrapper { inputs(options, &block) }
 
         if builder_options[:new_record]
           contents << js_for_section_has_many(
