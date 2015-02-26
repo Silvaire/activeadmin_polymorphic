@@ -59,23 +59,15 @@ window.extractAndInsertSectionForm= (url, target, formName)->
 
 init_sections_sortable = ->
   elems = $('.json_container[data-sortable]:not(.ui-sortable)')
-
-  moveAllInsideLast(elems)
-  elems.sortable
-    axis: 'y'
-    items: '> fieldset',
-    handle: '> ol > .handle',
-    connectWith: ".json_container[data-sortable]",
-    receive:    recompute_positions
-    stop: recompute_positions
-  elems.each recompute_positions
-
-moveAllInsideLast = (elems) ->
-  $lastContainer = $('.json_container[data-sortable]').last()
-  # if $(@) != $lastContainer
-  elems.sort( (a, b) ->
-    $(a).find(".input > :input[name$='[#{$(a).data("sortable")}]']").val() - $(b).find(".input > :input[name$='[#{$(b).data("sortable")}]']").val()
-  ).children().prependTo($lastContainer)
+  if elems.length
+    elems.sortable
+      axis: 'y'
+      items: '> fieldset',
+      handle: '> ol > .handle',
+      connectWith: ".json_container[data-sortable]",
+      receive:    recompute_positions
+      stop: recompute_positions
+    elems.each recompute_positions
 
 recompute_positions = (parent)->
   parent     = if parent instanceof jQuery then parent else $(@)

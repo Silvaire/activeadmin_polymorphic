@@ -2,8 +2,8 @@ module ActiveadminPolymorphic
   class FormBuilder < ::ActiveAdmin::FormBuilder
 
     def sections_has_many(assoc, options = {}, &block)
-      custom_settings = :new_record, :allow_destroy, :heading, :sortable, :sortable_start, :types, :path_prefix, :part_object
-      builder_options = {new_record: true, path_prefix: :admin, part_object: PartObject.new}.merge! options.slice  *custom_settings
+      custom_settings = :new_record, :allow_destroy, :heading, :sortable, :sortable_start, :types, :path_prefix, :part_objects
+      builder_options = {new_record: true, path_prefix: :admin, part_objects: nil}.merge! options.slice  *custom_settings
       options         = {for: assoc      }.merge! options.except *custom_settings
       options[:class] = [options[:class], "jsonb"].compact.join(' ')
       sortable_column = builder_options[:sortable]
@@ -16,16 +16,20 @@ module ActiveadminPolymorphic
         contents = "".html_safe
         block = sections_form(assoc, builder_options, collection)
         template.assign('sections_has_many_block' => true)
+        # this is the 'select new part' select box 
         # contents = without_wrapper { inputs(options, &block) }
 
-        if builder_options[:new_record]
-          contents << js_for_section_has_many(
+        builder_options[:part_objects].each do |part_object|
+          if part_object.part.blank? 
+            part = Part.new
+            part_object.part = part
+          end
+          contents << @template.render("admin/part_objects/part_object", part_object: part_object, part:part_object.part, form_prefix: @object_name)
+        end
+        # this is the 'Add new part button'
+        contents << js_for_section_has_many(
             assoc, template, builder_options, options[:class], collection
           )
-        else
-          builder_options[:part_object].part.build if builder_options[:part_object].part.blank? 
-          contents << @template.render("admin/part_objects/part_object", part_object: builder_options[:part_object], part:builder_options[:part_object].part, form_prefix: @object_name)
-        end
 
       end
       tag = @already_in_an_inputs_block ? :li : :div
