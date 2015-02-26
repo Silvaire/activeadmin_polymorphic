@@ -2,8 +2,8 @@ module ActiveadminPolymorphic
   class FormBuilder < ::ActiveAdmin::FormBuilder
 
     def sections_has_many(assoc, options = {}, &block)
-      custom_settings = :new_record, :allow_destroy, :heading, :sortable, :sortable_start, :types, :path_prefix, :part_objects
-      builder_options = {new_record: true, path_prefix: :admin, part_objects: nil}.merge! options.slice  *custom_settings
+      custom_settings = :new_record, :allow_destroy, :heading, :sortable, :sortable_start, :types, :path_prefix, :part_objects, :form_prefix
+      builder_options = {new_record: true, path_prefix: :admin, part_objects: nil, form_prefix: ''}.merge! options.slice  *custom_settings
       options         = {for: assoc      }.merge! options.except *custom_settings
       options[:class] = [options[:class], "jsonb"].compact.join(' ')
       sortable_column = builder_options[:sortable]
@@ -85,13 +85,13 @@ module ActiveadminPolymorphic
       proc do |form|
         html = "".html_safe
 
-        if @object.send(field_name).blank?
-          html << form.input("name", input_html: { class: 'section_type_select' }, as: :select, collection: section_options(collection, builder_options))
-        else
-          @object.send(field_name).to_a.last.last["fields"].each do |field|
-            html << form.input("#{@object.send(field_name).first.first.to_i}[fields][#{field.first}][#{field.last.first.first}]", label: field.last.first.first.try(:humanize), input_html: {value: field.last.first.last})
-          end
-        end
+        # if @object.send(field_name).blank? # this is probably always true, since the :parts relationship is never actually created in the DB
+        html << form.input("name", input_html: { class: 'section_type_select', name: builder_options[:form_prefix] + @object_name }, as: :select, collection: section_options(collection, builder_options))
+        # else
+        #   @object.send(field_name).to_a.last.last["fields"].each do |field|
+        #     html << form.input("#{@object.send(field_name).first.first.to_i}[fields][#{field.first}][#{field.last.first.first}]", label: field.last.first.first.try(:humanize), input_html: {value: field.last.first.last})
+        #   end
+        # end
 
         html << json_actions(form, builder_options, "".html_safe)
 
