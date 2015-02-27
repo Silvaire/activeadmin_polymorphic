@@ -53,7 +53,6 @@ $ ->
 activateAJAXwysiwyg = ->
   $(document).ajaxSuccess( ->
     $('.wysihtml5:not(.initialized)').each( ->
-      alert 'a'
       editor = new wysihtml5.Editor($(this).find('textarea').attr('id'), # id of textarea element
       { 
         toolbar: $(this).find('.toolbar').attr('id'),                    # id of toolbar element
