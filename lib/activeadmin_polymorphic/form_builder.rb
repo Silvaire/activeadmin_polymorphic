@@ -24,7 +24,7 @@ module ActiveadminPolymorphic
             part = Part.new
             part_object.part = part
           end
-          contents << @template.render("admin/part_objects/part_object", part_object: part_object, part:part_object.part, form_prefix: @object_name)
+          contents << @template.render("admin/part_objects/part_object", part_object: part_object, part:part_object.part, form_prefix: builder_options[:form_prefix] + @object_name)
         end
         # this is the 'Add new part button'
         contents << js_for_section_has_many(

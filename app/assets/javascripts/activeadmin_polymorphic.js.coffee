@@ -1,5 +1,7 @@
 $ ->
   init_sections_sortable()
+  activateAJAXwysiwyg()
+  activateAJAXsortable()
 
   $(document).on 'click', 'a.button.section_has_many_remove', (e)->
     e.preventDefault()
@@ -48,6 +50,24 @@ $ ->
 
     extractAndInsertSectionForm formPath, fieldset, formName
 
+activateAJAXwysiwyg = ->
+  $(document).ajaxSuccess( ->
+    $('.wysihtml5:not(.initialized)').each( ->
+      alert 'a'
+      editor = new wysihtml5.Editor($(this).find('textarea').attr('id'), # id of textarea element
+      { 
+        toolbar: $(this).find('.toolbar').attr('id'),                    # id of toolbar element
+        parserRules:  wysihtml5ParserRules                               # defined in parser rules set 
+      })
+      $(@).addClass('initialized')
+    )
+  )
+
+activateAJAXsortable = ->
+  $(document).ajaxSuccess( ->
+    init_sections_sortable()
+  )
+
 
 window.extractAndInsertSectionForm= (url, target, formName)->
   target = $ target
@@ -64,8 +84,6 @@ init_sections_sortable = ->
       axis: 'y'
       items: '> fieldset',
       handle: '> ol > .handle',
-      connectWith: ".json_container[data-sortable]",
-      receive:    recompute_positions
       stop: recompute_positions
     elems.each recompute_positions
 
@@ -77,8 +95,8 @@ recompute_positions = (parent)->
   parent.children('fieldset').each ->
     # We ignore nested inputs, so when defining your has_many, be sure to keep
     # your sortable input at the root of the has_many block.
-    destroy_input  = $(@).find ".input > :input[name$='[_destroy]']"
-    sortable_input = $(@).find ".input > :input[name$='[#{input_name}]']"
+    destroy_input  = $(@).find "> .input > :input[name$='[_destroy]']"
+    sortable_input = $(@).find "> .input > :input[name$='[#{input_name}]']"
 
     if sortable_input.length
       sortable_input.val if destroy_input.is ':checked' then '' else position++
